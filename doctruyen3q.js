@@ -240,17 +240,21 @@ class DocTruyen3Q extends ComicSource {
             let genres = doc.querySelectorAll('li.category p.detail-info a').map(e => e.text.trim())
             let cover = this.imageOf(doc.querySelector('img.image-comic'))
 
-            // chapters (newest first on the site)
-            let chapters = {}
+            // the site lists chapters newest first; Venera expects oldest first
+            let entries = []
             let updateTime = undefined
             let rows = doc.querySelectorAll('div.list-chapter li.row:not(.heading):not([style])')
             rows.forEach((row, i) => {
                 let a = row.querySelector('a')
                 if (!a) return
-                chapters[this.toPath(a.attributes['href'])] = a.text.trim()
+                entries.push([this.toPath(a.attributes['href']), a.text.trim()])
                 if (i === 0) {
                     updateTime = this.toDate(row.querySelector('.chapters + div')?.text)
                 }
+            })
+            let chapters = {}
+            entries.reverse().forEach(([k, v]) => {
+                chapters[k] = v
             })
 
             let tags = {}
