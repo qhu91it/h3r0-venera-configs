@@ -52,13 +52,19 @@ class NhatTruyen extends ComicSource {
             let v = this.absUrl(raw.replace(/ /g, "%20"))
             if (v) return v
         }
+        // fallback: any attribute that looks like an image url (site may use a custom lazy-load attribute)
+        for (let k in attrs) {
+            let raw = (attrs[k] || "").toString().trim()
+            if (/^(https?:)?\/\/\S+\.(jpe?g|png|webp|gif|avif)(\?\S*)?$/i.test(raw)) {
+                return this.absUrl(raw)
+            }
+        }
         return ""
     }
 
     imageHeaders() {
         return {
             "Referer": `${this.baseUrl}/`,
-            "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
         }
     }
 
@@ -88,6 +94,7 @@ class NhatTruyen extends ComicSource {
                 cover: this.imageOf(el.querySelector("div.image img")),
             })
         }).filter(c => c !== null)
+        if (comics.length > 0) console.log(`first cover: ${comics[0].cover}`)
         let hasNext = doc.querySelector("a.next-page") != null || doc.querySelector("a[rel=next]") != null
         doc.dispose()
         return {comics: comics, hasNext: hasNext}
