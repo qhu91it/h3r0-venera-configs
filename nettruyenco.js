@@ -174,7 +174,9 @@ class NetTruyenCO extends ComicSource {
             let list = JSON.parse(res.body).data ?? []
 
             let chapters = {}
-            list.forEach(c => {
+            // the endpoint returns newest first; Venera expects oldest first
+            let newest = list.length ? list[0].updated_at : undefined
+            list.slice().reverse().forEach(c => {
                 // epId = "<chapter_slug>/<chapter_id>"
                 chapters[`${c.chapter_slug}/${c.chapter_id}`] = c.chapter_name
             })
@@ -186,7 +188,7 @@ class NetTruyenCO extends ComicSource {
                 description: description,
                 tags: tags,
                 chapters: chapters,
-                updateTime: list.length ? list[0].updated_at : undefined,
+                updateTime: newest,
                 url: this.baseUrl + id,
             })
         },
