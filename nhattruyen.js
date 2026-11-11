@@ -39,15 +39,27 @@ class NhatTruyen extends ComicSource {
         return this.baseUrl + "/" + u
     }
 
-    /** mirrors WPComics.imageOrNull */
+    /** mirrors WPComics.imageOrNull, but also skips lazy-load placeholders */
     imageOf(el) {
         if (!el) return ""
         let attrs = el.attributes || {}
-        for (let k of ["data-original", "data-src", "src"]) {
-            let v = this.absUrl(attrs[k])
+        for (let k of ["data-original", "data-src", "data-lazy-src", "data-cfsrc", "src"]) {
+            let raw = attrs[k]
+            if (!raw) continue
+            raw = raw.trim()
+            if (raw === "" || /^(data|blob|javascript):/i.test(raw)) continue
+            if (/(loading|placeholder|blank|spinner)[^\/]*\.(gif|png|jpe?g|svg)/i.test(raw)) continue
+            let v = this.absUrl(raw.replace(/ /g, "%20"))
             if (v) return v
         }
         return ""
+    }
+
+    imageHeaders() {
+        return {
+            "Referer": `${this.baseUrl}/`,
+            "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+        }
     }
 
     async fetchHtml(url, headers) {
@@ -341,11 +353,11 @@ class NhatTruyen extends ComicSource {
         },
 
         onImageLoad: (url, comicId, epId) => {
-            return {headers: {"Referer": `${this.baseUrl}/`}}
+            return {headers: this.imageHeaders()}
         },
 
         onThumbnailLoad: (url) => {
-            return {headers: {"Referer": `${this.baseUrl}/`}}
+            return {headers: this.imageHeaders()}
         },
 
         onClickTag: (namespace, tag) => {
