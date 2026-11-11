@@ -63,8 +63,13 @@ class NhatTruyen extends ComicSource {
     }
 
     imageHeaders() {
+        let base = this.defaultDomain
+        try {
+            base = this.baseUrl
+        } catch (e) {}
         return {
-            "Referer": `${this.baseUrl}/`,
+            "Referer": `${base}/`,
+            "User-Agent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36",
         }
     }
 
@@ -95,16 +100,21 @@ class NhatTruyen extends ComicSource {
             })
         }).filter(c => c !== null)
         if (comics.length > 0) console.log(`first cover: ${comics[0].cover}`)
-        let hasNext = doc.querySelector("a.next-page") != null || doc.querySelector("a[rel=next]") != null
+        let hasNext = doc.querySelector("a.next-page") != null || doc.querySelector("a[rel='next']") != null
+        let lastPage = 0
+        doc.querySelectorAll("ul.pagination a.page-link").forEach(a => {
+            let n = parseInt((a.text || "").trim())
+            if (!isNaN(n) && n > lastPage) lastPage = n
+        })
         doc.dispose()
-        return {comics: comics, hasNext: hasNext}
+        return {comics: comics, hasNext: hasNext, lastPage: lastPage}
     }
 
     async loadList(url, page) {
         let html = await this.fetchHtml(url)
         let r = this.parseComicList(html)
-        // site has no total page count; expose "one more page" while a next link exists
-        return {comics: r.comics, maxPage: r.hasNext ? page + 1 : page}
+        let maxPage = r.lastPage > 0 ? r.lastPage : (r.hasNext ? page + 1 : page)
+        return {comics: r.comics, maxPage: Math.max(maxPage, page)}
     }
 
     buildQuery(params) {
