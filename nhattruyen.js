@@ -324,8 +324,8 @@ class NhatTruyen extends ComicSource {
                 )
                 let list = JSON.parse(body).data || []
                 if (list.length > 0) updateTime = list[0].updated_at
-                // site lists newest first; Venera expects oldest first
-                for (let i = list.length - 1; i >= 0; i--) {
+                // keep the site's order (newest first)
+                for (let i = 0; i < list.length; i++) {
                     chapters[list[i].chapter_slug] = list[i].chapter_name
                 }
             } catch (e) {
@@ -334,7 +334,7 @@ class NhatTruyen extends ComicSource {
 
             if (Object.keys(chapters).length === 0) {
                 let els = doc.querySelectorAll("div.list-chapter li.row:not(.heading)")
-                for (let i = els.length - 1; i >= 0; i--) {
+                for (let i = 0; i < els.length; i++) {
                     let a = els[i].querySelector("a")
                     if (!a) continue
                     let path = this.relPath(a.attributes["href"])
