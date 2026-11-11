@@ -272,6 +272,13 @@ class VinaHentai extends ComicSource {
                 }
             }
 
+            // site lists newest first; reverse so the order is oldest -> newest
+            let ordered = {}
+            for (let key of Object.keys(chapters).reverse()) {
+                ordered[key] = chapters[key]
+            }
+            chapters = ordered
+
             let tags = {}
             if (authors.length) tags["Tác giả"] = authors
             if (genres.length) tags["Thể loại"] = genres
