@@ -9,7 +9,7 @@ class DocTruyen3Q extends ComicSource {
 
     minAppVersion = "1.6.0"
 
-    url = "https://raw.githubusercontent.com/venera-app/venera-configs/main/doctruyen3q.js"
+    url = "https://raw.githubusercontent.com/qhu91it/h3r0-venera-configs/main/doctruyen3q.js"
 
     // ---------- helpers ----------
 
