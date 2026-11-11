@@ -30,8 +30,16 @@ class NetTruyenCO extends ComicSource {
 
     /** @param el {HtmlElement} */
     imgSrc(el) {
+        // same priority as WPComics.imageOrNull: data-original > data-src > src (must resolve to http/https)
         let a = el.attributes
-        return this.fixUrl(a['data-original'] || a['data-src'] || a['data-lazy-src'] || a['src'])
+        for (let k of ['data-original', 'data-src', 'src']) {
+            let v = a[k]
+            if (v && v.trim()) {
+                let u = this.fixUrl(v)
+                if (/^https?:\/\//i.test(u)) return u
+            }
+        }
+        return ''
     }
 
     /** "https://x.com/truyen-tranh/slug-123" -> "/truyen-tranh/slug-123" */
@@ -84,24 +92,39 @@ class NetTruyenCO extends ComicSource {
             title: "NetTruyenCO - Hot",
             type: "multiPageComicList",
             load: async (page) => {
-                return this.loadList(`${this.baseUrl}/truyen-tranh-hot?page=${page}`, page)
+                return this.loadList(`${this.baseUrl}/truyen-tranh-hot` + (page > 1 ? `?page=${page}` : ''), page)
             },
         },
         {
             title: "NetTruyenCO - Latest",
             type: "multiPageComicList",
             load: async (page) => {
-                return this.loadList(`${this.baseUrl}/tim-truyen?status=-1&sort=0&page=${page}`, page)
+                // WPComics: latest updates = home page
+                return this.loadList(this.baseUrl + (page > 1 ? `?page=${page}` : ''), page)
             },
         },
     ]
 
     search = {
         load: async (keyword, options, page) => {
-            let url = `${this.baseUrl}/tim-truyen?keyword=${encodeURIComponent(keyword)}&page=${page}`
+            let url = `${this.baseUrl}/tim-truyen?`
+            let status = options[0]
+            if (status && status !== 'all') url += `status=${status}&`
+            url += `keyword=${encodeURIComponent(keyword)}&page=${page}&sort=0`
             return this.loadList(url, page)
         },
-        optionList: [],
+        optionList: [
+            {
+                type: "select",
+                label: "Status",
+                options: [
+                    "all-All",
+                    "1-Ongoing",
+                    "2-Completed",
+                ],
+                default: "all",
+            },
+        ],
         enableTagsSuggestions: false,
     }
 
@@ -110,14 +133,16 @@ class NetTruyenCO extends ComicSource {
             let doc = await this.getHtml(this.baseUrl + id)
             let title, cover, description, tags = {}
             try {
-                title = doc.querySelector('h1.title-detail')?.text.trim() ?? ''
-                let img = doc.querySelector('div.col-image img')
+                title = (doc.querySelector('h1.title-detail') ?? doc.querySelector('article#item-detail h1'))?.text.trim() ?? ''
+                let img = doc.querySelector('article#item-detail div.col-image img') ?? doc.querySelector('div.col-image img')
                 cover = img ? this.imgSrc(img) : ''
 
                 let author = doc.querySelector('li.author p.col-xs-8')?.text.trim()
                 if (author) tags['Author'] = [author]
                 let status = doc.querySelector('li.status p.col-xs-8')?.text.trim()
                 if (status) tags['Status'] = [status]
+                let otherName = doc.querySelector('h2.other-name')?.text.trim()
+                if (otherName) tags['Other name'] = [otherName]
                 let genres = doc.querySelectorAll('li.kind p.col-xs-8 a').map(e => e.text.trim())
                 if (genres.length) tags['Genres'] = genres
 
@@ -173,7 +198,7 @@ class NetTruyenCO extends ComicSource {
             try {
                 let imgs = doc.querySelectorAll('div.page-chapter > img')
                 if (!imgs.length) imgs = doc.querySelectorAll('li.blocks-gallery-item img')
-                let images = imgs.map(e => this.imgSrc(e)).filter(Boolean)
+                let images = [...new Set(imgs.map(e => this.imgSrc(e)).filter(Boolean))]
                 return {images: images}
             } finally {
                 doc.dispose()
