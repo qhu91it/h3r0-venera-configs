@@ -39,51 +39,15 @@ class NhatTruyen extends ComicSource {
         return this.baseUrl + "/" + u
     }
 
-    /** mirrors WPComics.imageOrNull, but also skips lazy-load placeholders */
+    /** mirrors WPComics.imageOrNull */
     imageOf(el) {
         if (!el) return ""
         let attrs = el.attributes || {}
-        for (let k of ["data-original", "data-src", "data-lazy-src", "data-cfsrc", "src"]) {
-            let raw = attrs[k]
-            if (!raw) continue
-            raw = raw.trim()
-            if (raw === "" || /^(data|blob|javascript):/i.test(raw)) continue
-            if (/(loading|placeholder|blank|spinner)[^\/]*\.(gif|png|jpe?g|svg)/i.test(raw)) continue
-            let v = this.absUrl(raw.replace(/ /g, "%20"))
+        for (let k of ["data-original", "data-src", "src"]) {
+            let v = this.absUrl(attrs[k])
             if (v) return v
         }
-        // fallback: any attribute that looks like an image url (site may use a custom lazy-load attribute)
-        for (let k in attrs) {
-            let raw = (attrs[k] || "").toString().trim()
-            if (/^(https?:)?\/\/\S+\.(jpe?g|png|webp|gif|avif)(\?\S*)?$/i.test(raw)) {
-                return this.absUrl(raw)
-            }
-        }
         return ""
-    }
-
-    /**
-     * Headers a desktop Chrome sends for an <img> on the site itself.
-     * The image CDN (beercloudy.com) blocks requests that don't look like they come from the site.
-     */
-    imageHeaders() {
-        let base = this.defaultDomain
-        try {
-            base = this.baseUrl
-        } catch (e) {}
-        return {
-            "Referer": `${base}/`,
-            "Origin": base,
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-            "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-            "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
-            "sec-ch-ua": "\"Not/A)Brand\";v=\"8\", \"Chromium\";v=\"126\", \"Google Chrome\";v=\"126\"",
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": "\"Windows\"",
-            "Sec-Fetch-Dest": "image",
-            "Sec-Fetch-Mode": "no-cors",
-            "Sec-Fetch-Site": "cross-site",
-        }
     }
 
     async fetchHtml(url, headers) {
@@ -112,22 +76,16 @@ class NhatTruyen extends ComicSource {
                 cover: this.imageOf(el.querySelector("div.image img")),
             })
         }).filter(c => c !== null)
-        if (comics.length > 0) console.log(`first cover: ${comics[0].cover}`)
-        let hasNext = doc.querySelector("a.next-page") != null || doc.querySelector("a[rel='next']") != null
-        let lastPage = 0
-        doc.querySelectorAll("ul.pagination a.page-link").forEach(a => {
-            let n = parseInt((a.text || "").trim())
-            if (!isNaN(n) && n > lastPage) lastPage = n
-        })
+        let hasNext = doc.querySelector("a.next-page") != null || doc.querySelector("a[rel=next]") != null
         doc.dispose()
-        return {comics: comics, hasNext: hasNext, lastPage: lastPage}
+        return {comics: comics, hasNext: hasNext}
     }
 
     async loadList(url, page) {
         let html = await this.fetchHtml(url)
         let r = this.parseComicList(html)
-        let maxPage = r.lastPage > 0 ? r.lastPage : (r.hasNext ? page + 1 : page)
-        return {comics: r.comics, maxPage: Math.max(maxPage, page)}
+        // site has no total page count; expose "one more page" while a next link exists
+        return {comics: r.comics, maxPage: r.hasNext ? page + 1 : page}
     }
 
     buildQuery(params) {
@@ -324,8 +282,8 @@ class NhatTruyen extends ComicSource {
                 )
                 let list = JSON.parse(body).data || []
                 if (list.length > 0) updateTime = list[0].updated_at
-                // keep the site's order (newest first)
-                for (let i = 0; i < list.length; i++) {
+                // site lists newest first; Venera expects oldest first
+                for (let i = list.length - 1; i >= 0; i--) {
                     chapters[list[i].chapter_slug] = list[i].chapter_name
                 }
             } catch (e) {
@@ -334,7 +292,7 @@ class NhatTruyen extends ComicSource {
 
             if (Object.keys(chapters).length === 0) {
                 let els = doc.querySelectorAll("div.list-chapter li.row:not(.heading)")
-                for (let i = 0; i < els.length; i++) {
+                for (let i = els.length - 1; i >= 0; i--) {
                     let a = els[i].querySelector("a")
                     if (!a) continue
                     let path = this.relPath(a.attributes["href"])
@@ -383,11 +341,11 @@ class NhatTruyen extends ComicSource {
         },
 
         onImageLoad: (url, comicId, epId) => {
-            return {headers: this.imageHeaders()}
+            return {headers: {"Referer": `${this.baseUrl}/`}}
         },
 
         onThumbnailLoad: (url) => {
-            return {headers: this.imageHeaders()}
+            return {headers: {"Referer": `${this.baseUrl}/`}}
         },
 
         onClickTag: (namespace, tag) => {
